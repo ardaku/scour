@@ -48,6 +48,50 @@
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_possible_wrap)]
 
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fuzzy_1() {
+        assert!(simple_fuzzy_match("ftw", "ForrestTheWoods"));
+    }
+
+    #[test]
+    fn test_fuzzy_2() {
+        assert!(!simple_fuzzy_match("fwt", "ForrestTheWoods"));
+    }
+
+    #[test]
+    fn test_fuzzy_3() {
+        assert!(simple_fuzzy_match("gh", "GitHub"));
+    }
+
+    #[test]
+    fn test_fuzzy_4() {
+        assert_eq!(
+            fuzzy_match("otw", "Power Of The Wild"),
+            (true, 14)
+        );
+    }
+
+    #[test]
+    fn test_fuzzy_5() {
+        assert_eq!(
+            fuzzy_match("otw", "Druid of the Claw"),
+            (true, -3)
+        );
+    }
+
+    #[test]
+    fn test_fuzzy_6() {
+        assert_eq!(
+            fuzzy_match("otw", "Frostwolf Grunt"),
+            (true, -13)
+        );
+    }
+}
+
 // section constants
 // Bonus constants
 /// Adjacent characters matched
@@ -76,8 +120,8 @@ pub fn simple_fuzzy_match(pattern: &str, in_string: &str) -> bool {
     let string_len: usize = in_string.len();
 
     while pattern_index < pattern_len && string_index < string_len {
-        let pattern_char: char = pattern.chars().nth(pattern_index).unwrap_or(' ');
-        let string_char: char = in_string.chars().nth(string_index).unwrap_or(' ');
+        let pattern_char: char = pattern.chars().nth(pattern_index).unwrap_or(' ').to_ascii_lowercase();
+        let string_char: char = in_string.chars().nth(string_index).unwrap_or(' ').to_ascii_lowercase();
 
         if pattern_char == string_char {
             pattern_index += 1;
@@ -148,14 +192,14 @@ fn fuzzy_match_recursive(
         let string_char: char = in_string.chars().nth(string_index).unwrap_or(' ');
 
         if pattern_char == string_char {
-            // First character matched
-            if *next_match >= max_matches {
-                return (false, 0);
-            }
+            // // First character matched
+            // if *next_match >= max_matches {
+            //     return (false, 0);
+            // }
 
             // This is a hack to avoid matching the same character twice
             if first_match && matches == vec![] {
-                matches.push(pattern_char);
+                matches.push(string_char);
                 first_match = false;
             }
 
@@ -183,16 +227,17 @@ fn fuzzy_match_recursive(
                 recursive_match = true;
             }
 
-            matches[(*next_match + 1) as usize] = string_index as u8 as char;
+            matches.push(string_char);
 
             pattern_index += 1;
         }
         string_index += 1;
     }
 
-    let did_matche: bool = pattern_index == pattern.len();
+    let did_match: bool = pattern_index == pattern.len();
+    println!("{} == {}", pattern_index, pattern.len());
 
-    if did_matche {
+    if did_match {
         out_score = 100;
 
         // Negative bonus for leading characters
@@ -233,10 +278,10 @@ fn fuzzy_match_recursive(
         }
 
         // Return the best score
-        return if recursive_match && (!did_matche || best_recursive_score > out_score) {
+        return if recursive_match && (!did_match || best_recursive_score > out_score) {
             matches = best_recursive_matches;
             (true, best_recursive_score)
-        } else if did_matche {
+        } else if did_match {
             (true, out_score)
         } else {
             (false, out_score)
