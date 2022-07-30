@@ -249,7 +249,6 @@ fn fuzzy_match_recursive(
                 let neighbor = matches_orig.chars().nth(curr - 1).unwrap();
                 let current = matches_orig.chars().nth(curr).unwrap();
 
-                // FIXME: Don't apply camel case bonus if neighbor bonus
                 // Camel case bonus (current = uppercase that follows lowercase)
                 if neighbor != neighbor.to_ascii_uppercase() && current != current.to_ascii_lowercase() {
                     out_score += BONUS_WORD;
