@@ -51,26 +51,17 @@ pub mod tests {
 
     #[test]
     fn test_fuzzy_4() {
-        assert_eq!(
-            fuzzy_match("otw", "Power Of The Wild"),
-            (true, 161)
-        );
+        assert_eq!(fuzzy_match("otw", "Power Of The Wild"), (true, 161));
     }
 
     #[test]
     fn test_fuzzy_5() {
-        assert_eq!(
-            fuzzy_match("otw", "Druid of the Claw"),
-            (true, 131)
-        );
+        assert_eq!(fuzzy_match("otw", "Druid of the Claw"), (true, 131));
     }
 
     #[test]
     fn test_fuzzy_6() {
-        assert_eq!(
-            fuzzy_match("otw", "Frostwolf Grunt"),
-            (true, 93)
-        );
+        assert_eq!(fuzzy_match("otw", "Frostwolf Grunt"), (true, 93));
     }
 }
 
@@ -158,7 +149,9 @@ fn fuzzy_match_recursive(
     // Match through the characters of the pattern and input string
     let mut first_match: bool = true;
 
-    while let Some((current, matched)) = pattern.chars().next().zip(matches.chars().next()) {
+    while let Some((current, matched)) =
+        pattern.chars().next().zip(matches.chars().next())
+    {
         // Check for match
         if current.to_ascii_lowercase() == matched.to_ascii_lowercase() {
             // If capacity would overflow, don't match
@@ -208,14 +201,16 @@ fn fuzzy_match_recursive(
         out_score = 100;
 
         // Penalty for leading characters
-        let penalty = ((match_list[0] as i32) * PENALTY_LEADING).max(MAX_PENALTY_LEADING);
+        let penalty =
+            ((match_list[0] as i32) * PENALTY_LEADING).max(MAX_PENALTY_LEADING);
         out_score += penalty;
 
         println!("Applied penalty of {penalty} - now {out_score}");
 
         // Penalty for unmatched characters
         println!("{}, {}", matches_orig.len(), match_list.len());
-        let penalty = PENALTY_INCORRECT_CHAR * (matches_orig.len() as i32 - match_list.len() as i32);
+        let penalty = PENALTY_INCORRECT_CHAR
+            * (matches_orig.len() as i32 - match_list.len() as i32);
         out_score += penalty;
         println!("Applied penalty of {penalty} - now {out_score}");
 
@@ -225,11 +220,9 @@ fn fuzzy_match_recursive(
             let curr = match_list[i];
 
             // Sequential bonus
-            if i > 0 {
-                if curr == match_list[i - 1] + 1 {
-                    out_score += BONUS_ADJACENT;
-                    println!("Applied sequential bonus of {BONUS_ADJACENT} - now {out_score}");
-                }
+            if i > 0 && curr == match_list[i - 1] + 1 {
+                out_score += BONUS_ADJACENT;
+                println!("Applied sequential bonus of {BONUS_ADJACENT} - now {out_score}");
             }
 
             // Neighboring bonuses
@@ -238,25 +231,35 @@ fn fuzzy_match_recursive(
                 let current = matches_orig.chars().nth(curr).unwrap();
 
                 // Camel case bonus (current = uppercase that follows lowercase)
-                if neighbor != neighbor.to_ascii_uppercase() && current != current.to_ascii_lowercase() {
+                if neighbor != neighbor.to_ascii_uppercase()
+                    && current != current.to_ascii_lowercase()
+                {
                     out_score += BONUS_WORD;
-                    println!("Applied word bonus of {BONUS_WORD} - now {out_score}");
+                    println!(
+                        "Applied word bonus of {BONUS_WORD} - now {out_score}"
+                    );
                 }
 
                 // Snake case bonus (current = any that follows - or _ or space)
                 if matches!(neighbor, '-' | '_' | ' ') {
                     out_score += BONUS_WORD;
-                    println!("Applied word bonus of {BONUS_WORD} - now {out_score}");
+                    println!(
+                        "Applied word bonus of {BONUS_WORD} - now {out_score}"
+                    );
                 }
             } else {
                 // First character bonus
                 out_score += BONUS_FIRST;
-                println!("Applied first bonus of {BONUS_FIRST} - now {out_score}");
+                println!(
+                    "Applied first bonus of {BONUS_FIRST} - now {out_score}"
+                );
             }
         }
 
         // Return the best score
-        return if recursive_match && (!did_match || best_recursive_score > out_score) {
+        return if recursive_match
+            && (!did_match || best_recursive_score > out_score)
+        {
             *match_list = best_recursive_matches;
             (true, best_recursive_score)
         } else if did_match {
