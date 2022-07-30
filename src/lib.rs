@@ -189,9 +189,9 @@ fn fuzzy_match_recursive(
 
             let mut recursive_matches = Vec::new();
             let (is_matching, score) = fuzzy_match_recursive(
-                &pattern[..],
+                pattern,
                 &matches[1..],
-                Some(&match_list),
+                Some(match_list),
                 &mut recursive_matches,
                 max_matches,
                 recursions - 1,
@@ -236,8 +236,8 @@ fn fuzzy_match_recursive(
 
             // Neighboring bonuses
             if curr as u32 > 0 {
-                let neighbor = matches_orig.chars().skip(curr - 1).next().unwrap();
-                let current = matches_orig.chars().skip(curr).next().unwrap();
+                let neighbor = matches_orig.chars().nth(curr - 1).unwrap();
+                let current = matches_orig.chars().nth(curr).unwrap();
 
                 // Camel case bonus (current = uppercase that follows lowercase)
                 if neighbor != neighbor.to_ascii_uppercase() && current != current.to_ascii_lowercase() {
