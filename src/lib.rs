@@ -1,25 +1,13 @@
-// Copyright (c) 2022 The Quantii Contributors
+// Fuzzy Search (WIP NAME)
+// Copyright © 2022 Fuzzy Search (WIP NAME) Contributors.
 //
-// This file is part of Quantii.
+// Licensed under any of:
+// - Apache License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0)
+// - MIT License (https://mit-license.org/)
+// - Boost Software License, Version 1.0 (https://www.boost.org/LICENSE_1_0.txt)
+// At your choosing (See accompanying files LICENSE_APACHE_2_0.txt,
+// LICENSE_MIT.txt and LICENSE_BOOST_1_0.txt).
 //
-// Quantii is free software: you can redistribute
-// it and/or modify it under the terms of the GNU
-// Lesser General Public License as published by
-// the Free Software Foundation, either version 3
-// of the License, or (at your option) any later
-// version.
-//
-// Quantii is distributed in the hope that it
-// will be useful, but WITHOUT ANY WARRANTY;
-// without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR
-// PURPOSE. See the GNU Lesser General Public
-// License for more details.
-//
-// You should have received a copy of the GNU
-// Lesser General Public License along with
-// Quantii. If not, see <https://www.gnu.org/licenses/>.
-
 //! Code based on [fts_fuzzy_match] implementing [Aproximate String Matching].
 //!
 //! [fts_fuzzy_match]: https://github.com/forrestthewoods/lib_fts/blob/master/code/fts_fuzzy_match.js
