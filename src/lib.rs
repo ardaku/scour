@@ -20,33 +20,27 @@
 // Lesser General Public License along with
 // Quantii. If not, see <https://www.gnu.org/licenses/>.
 
-//! Implementation of [this algorithm](https://github.com/forrestthewoods/lib_fts/blob/master/code/fts_fuzzy_match.js)
-//! [Aproximate String Matching](https://en.wikipedia.org/wiki/Approximate_string_matching)
+//! Code based on [fts_fuzzy_match] implementing [Aproximate String Matching].
+//!
+//! [fts_fuzzy_match]: https://github.com/forrestthewoods/lib_fts/blob/master/code/fts_fuzzy_match.js
+//! [Aproximate String Matching]: https://en.wikipedia.org/wiki/Approximate_string_matching
 
-// section clippy
+#![forbid(unsafe_code)]
 #![warn(
-    clippy::all,
-    clippy::restriction,
-    clippy::pedantic,
-    clippy::nursery,
-    clippy::cargo
+    anonymous_parameters,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    missing_docs,
+    nonstandard_style,
+    rust_2018_idioms,
+    single_use_lifetimes,
+    trivial_casts,
+    trivial_numeric_casts,
+    unreachable_pub,
+    unused_extern_crates,
+    unused_qualifications,
+    variant_size_differences
 )]
-#![allow(clippy::implicit_return)]
-#![allow(clippy::missing_inline_in_public_items)]
-#![allow(clippy::print_stdout)]
-#![allow(clippy::blanket_clippy_restriction_lints)]
-#![allow(clippy::unwrap_used)]
-#![allow(clippy::let_underscore_drop)]
-#![allow(clippy::indexing_slicing)]
-#![allow(clippy::inline_always)]
-#![allow(clippy::unwrap_in_result)]
-#![allow(clippy::exhaustive_enums)]
-#![allow(clippy::default_numeric_fallback)]
-#![allow(clippy::integer_arithmetic)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::as_conversions)]
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_possible_wrap)]
 
 #[cfg(test)]
 pub mod tests {
@@ -92,8 +86,6 @@ pub mod tests {
     }
 }
 
-// section constants
-// Bonus constants
 /// Adjacent characters matched
 const BONUS_ADJACENT: i32 = 15;
 /// Matched characters with seperator
@@ -103,53 +95,45 @@ const BONUS_CASE: i32 = 30;
 /// First character matched
 const BONUS_FIRST: i32 = 15;
 
-// Negative bonuses
-/// Incorrect character leading string
-const NEG_BONUS_LEADING: i32 = -5;
-/// Maximum penalty for incorrect character bonuses
-const MAX_NEG_LEADING_BONUS: i32 = -15;
 /// Incorrect character
-const NEG_INCORRECT_CHAR: i32 = -1;
+const PENALTY_INCORRECT_CHAR: i32 = -1;
+/// Incorrect character leading string
+const PENALTY_LEADING: i32 = -5;
+/// Maximum penalty for incorrect character bonuses
+const MAX_PENALTY_LEADING: i32 = -15;
 
-/// A simpler version of the Fuzzy Match algorithm
-#[must_use]
-pub fn simple_fuzzy_match(pattern: &str, in_string: &str) -> bool {
-    let mut pattern_index: usize = 0;
-    let mut string_index: usize = 0;
-    let pattern_len: usize = pattern.len();
-    let string_len: usize = in_string.len();
+/// Maximum recursion
+const MAX_RECURSION: u32 = 15;
 
-    while pattern_index < pattern_len && string_index < string_len {
-        let pattern_char: char = pattern.chars().nth(pattern_index).unwrap_or(' ').to_ascii_lowercase();
-        let string_char: char = in_string.chars().nth(string_index).unwrap_or(' ').to_ascii_lowercase();
+/// An extremely simple fuzzy match
+#[must_use = "Pure function with no side-effects"]
+pub fn simple_fuzzy_match(pattern: &str, matches: &str) -> bool {
+    let mut pattern = pattern.chars().map(|c| c.to_ascii_lowercase());
+    let matches = matches.chars().map(|c| c.to_ascii_lowercase());
+    let mut current = pattern.next();
 
-        if pattern_char == string_char {
-            pattern_index += 1;
+    for matched in matches {
+        if current == Some(matched) {
+            current = pattern.next();
         }
-        string_index += 1;
     }
 
-    pattern_len != 0 && string_len != 0 && pattern_index == pattern_len
+    current.is_none()
 }
 
 /// A more complex version of the Fuzzy Match algorithm
-#[must_use]
-pub fn fuzzy_match(pattern: &str, in_string: &str) -> (bool, i32) {
-    let depth: u32 = 0;
-    let max_depth: u32 = 15;
-    let matches: Vec<char> = vec![];
-    let mut max_matches: u32 = 256;
+#[must_use = "Pure function with no side-effects"]
+pub fn fuzzy_match(pattern: &str, matches: &str) -> (bool, i32) {
+    let max_matches: usize = 256;
 
     fuzzy_match_recursive(
         pattern,
-        in_string,
-        0,
-        0,
-        max_matches,
         matches,
-        &mut max_matches,
-        depth,
-        max_depth,
+        None,
+        &mut Vec::with_capacity(max_matches),
+        max_matches,
+        MAX_RECURSION,
+        0,
     )
 }
 
@@ -157,119 +141,112 @@ pub fn fuzzy_match(pattern: &str, in_string: &str) -> (bool, i32) {
 ///
 /// The function is used recursively in [`fuzzy_match`]
 fn fuzzy_match_recursive(
-    pattern: &str,
-    in_string: &str,
-    mut pattern_index: usize,
-    mut string_index: usize,
-    max_matches: u32,
-    mut matches: Vec<char>,
-    next_match: &mut u32,
-    recursion_depth: u32,
-    max_recursion_depth: u32,
+    mut pattern: &str,
+    mut matches: &str,
+    src_match_list: Option<&[usize]>,
+    match_list: &mut Vec<usize>,
+    max_matches: usize,
+    recursions: u32,
+    mut index: usize,
 ) -> (bool, i32) {
-    let mut out_score: i32 = 0;
+    let matches_orig = matches;
 
     // Maximum recursion depth has been reached
-    if recursion_depth + 1 >= max_recursion_depth {
+    if recursions == 0 {
         return (false, 0);
     }
 
     // No more characters in the pattern or input string to match
-    if pattern_index >= pattern.len() || string_index >= in_string.len() {
+    if pattern.is_empty() || matches.is_empty() {
         return (true, 0);
     }
 
+    let mut out_score = 0;
+
     // Parameters used in recursing
-    let mut recursive_match: bool = false;
-    let mut best_recursive_matches: Vec<char> = vec![];
-    let mut best_recursive_score: i32 = 0;
+    let mut recursive_match = false;
+    let mut best_recursive_matches = Vec::new();
+    let mut best_recursive_score = 0;
 
     // Match through the characters of the pattern and input string
     let mut first_match: bool = true;
 
-    while pattern_index < pattern.len() && string_index < in_string.len() {
-        let pattern_char: char = pattern.chars().nth(pattern_index).unwrap_or(' ');
-        let string_char: char = in_string.chars().nth(string_index).unwrap_or(' ');
-
-        if pattern_char == string_char {
-            // // First character matched
-            // if *next_match >= max_matches {
-            //     return (false, 0);
-            // }
-
-            // This is a hack to avoid matching the same character twice
-            if first_match && matches == vec![] {
-                matches.push(string_char);
-                first_match = false;
+    while let Some((current, matched)) = pattern.chars().next().zip(matches.chars().next()) {
+        // Check for match
+        if current.to_ascii_lowercase() == matched.to_ascii_lowercase() {
+            // If capacity would overflow, don't match
+            if max_matches <= match_list.len() {
+                return (false, out_score);
             }
 
-            // Do the recursion
-            let recursive_matches: Vec<char> = vec![];
-            let (did_matche, recursive_score): (bool, i32) = fuzzy_match_recursive(
-                pattern,
-                in_string,
-                pattern_index,
-                string_index + 1,
+            // This is a hack to avoid matching the same character twice
+            if let Some(src_match_list) = src_match_list {
+                if first_match {
+                    match_list.extend(src_match_list);
+                    first_match = false;
+                }
+            }
+
+            let mut recursive_matches = Vec::new();
+            let (is_matching, score) = fuzzy_match_recursive(
+                &pattern[..],
+                &matches[1..],
+                Some(&match_list),
+                &mut recursive_matches,
                 max_matches,
-                recursive_matches.clone(),
-                next_match,
-                recursion_depth + 1,
-                max_recursion_depth,
+                recursions - 1,
+                index,
             );
 
-            // It matched!
-            if did_matche {
-                // Pick the best score
-                if !recursive_match || recursive_score > best_recursive_score {
-                    best_recursive_matches = recursive_matches;
-                    best_recursive_score = recursive_score;
+            if is_matching {
+                if !recursive_match || score > best_recursive_score {
+                    best_recursive_matches = recursive_matches.clone();
+                    best_recursive_score = score;
                 }
                 recursive_match = true;
             }
 
-            matches.push(string_char);
-
-            pattern_index += 1;
+            match_list.push(index);
+            pattern = &pattern[1..];
         }
-        string_index += 1;
+
+        matches = &matches[1..];
+        index += 1;
     }
 
-    let did_match: bool = pattern_index == pattern.len();
-    println!("{} == {}", pattern_index, pattern.len());
+    let did_match = pattern.is_empty();
 
     if did_match {
         out_score = 100;
 
         // Negative bonus for leading characters
-        let mut penalty = (matches[0] as i32) * NEG_BONUS_LEADING;
-        penalty = if penalty < MAX_NEG_LEADING_BONUS {
-            MAX_NEG_LEADING_BONUS
-        } else {
-            NEG_BONUS_LEADING
-        };
-        out_score += penalty;
+        out_score += ((match_list[0] as i32) * PENALTY_LEADING).max(MAX_PENALTY_LEADING);
 
         // Negative bonus for incorrect characters
-        out_score += NEG_INCORRECT_CHAR * (matches.len() as i32);
+        out_score += PENALTY_INCORRECT_CHAR * (match_list.len() as i32);
 
         // Ordering bonuses
-        for i in 0..matches.len() {
-            let curr = matches[i];
+        for i in 0..match_list.len() {
+            let curr = match_list[i];
 
-            if i > 0 && curr == matches[i - 1] {
+            // Sequential bonus
+            if i > 0 && curr == match_list[i - 1] {
                 out_score += BONUS_ADJACENT;
             }
 
-            // Neightboring bonuses
+            // Neighboring bonuses
             if curr as u32 > 0 {
-                // Incorrect case
-                if curr.to_ascii_lowercase() != matches[i - 1].to_ascii_lowercase() {
+                let neighbor = matches_orig.chars().skip(curr - 1).next().unwrap();
+                let current = matches_orig.chars().skip(curr).next().unwrap();
+
+                // Camel case bonus (current = uppercase that follows lowercase)
+                if neighbor != neighbor.to_ascii_uppercase() && current != current.to_ascii_lowercase() {
                     out_score += BONUS_CASE;
                 }
 
-                // Separator bonus
-                if matches[i - 1] == ' ' || matches[i - 1] == '-' || matches[i - 1] == '_' {
-                    out_score += BONUS_SEPARATOR;
+                // Snake case bonus (current = any that follows - or _ or space)
+                if matches!(neighbor, '-' | '_' | ' ') {
+                    out_score = BONUS_SEPARATOR;
                 }
             } else {
                 // First character bonus
@@ -279,7 +256,7 @@ fn fuzzy_match_recursive(
 
         // Return the best score
         return if recursive_match && (!did_match || best_recursive_score > out_score) {
-            matches = best_recursive_matches;
+            *match_list = best_recursive_matches;
             (true, best_recursive_score)
         } else if did_match {
             (true, out_score)
