@@ -88,10 +88,8 @@ pub mod tests {
 
 /// Adjacent characters matched
 const BONUS_ADJACENT: i32 = 15;
-/// Matched characters with seperator
-const BONUS_SEPARATOR: i32 = 30;
-/// Matched characters of different case
-const BONUS_CASE: i32 = 30;
+/// Matched characters with a seperator or CamelCase
+const BONUS_WORD: i32 = 30;
 /// First character matched
 const BONUS_FIRST: i32 = 15;
 
@@ -182,6 +180,7 @@ fn fuzzy_match_recursive(
             // This is a hack to avoid matching the same character twice
             if let Some(src_match_list) = src_match_list {
                 if first_match {
+                    match_list.clear();
                     match_list.extend(src_match_list);
                     first_match = false;
                 }
@@ -219,11 +218,11 @@ fn fuzzy_match_recursive(
     if did_match {
         out_score = 100;
 
-        // Negative bonus for leading characters
+        // Penalty for leading characters
         out_score += ((match_list[0] as i32) * PENALTY_LEADING).max(MAX_PENALTY_LEADING);
 
-        // Negative bonus for incorrect characters
-        out_score += PENALTY_INCORRECT_CHAR * (match_list.len() as i32);
+        // Penalty for unmatched characters
+        out_score += PENALTY_INCORRECT_CHAR * (matches_orig.len() as i32 - match_list.len() as i32);
 
         // Ordering bonuses
         for i in 0..match_list.len() {
@@ -239,14 +238,15 @@ fn fuzzy_match_recursive(
                 let neighbor = matches_orig.chars().nth(curr - 1).unwrap();
                 let current = matches_orig.chars().nth(curr).unwrap();
 
+                // FIXME: Don't apply camel case bonus if neighbor bonus
                 // Camel case bonus (current = uppercase that follows lowercase)
                 if neighbor != neighbor.to_ascii_uppercase() && current != current.to_ascii_lowercase() {
-                    out_score += BONUS_CASE;
+                    out_score += BONUS_WORD;
                 }
 
                 // Snake case bonus (current = any that follows - or _ or space)
                 if matches!(neighbor, '-' | '_' | ' ') {
-                    out_score = BONUS_SEPARATOR;
+                    out_score += BONUS_WORD;
                 }
             } else {
                 // First character bonus
